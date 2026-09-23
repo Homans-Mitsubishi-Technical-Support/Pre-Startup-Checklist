@@ -175,7 +175,7 @@ section.panel.active { display: block; }
   padding: 11px 14px;
 }
 .card > .card-head.gray {
-  background: #f0f2f5;
+  background: var(--line);
   color: var(--ink);
 }
 .card .card-body { padding: 4px 14px 14px; }
@@ -219,19 +219,6 @@ input:focus, textarea:focus, select:focus {
   outline: 2px solid var(--blue);
   outline-offset: 1px;
 }
-input.invalid, textarea.invalid {
-  border-color: var(--warn-border) !important;
-  background: var(--warn-bg) !important;
-}
-.check-item.invalid {
-  border-color: var(--warn-border);
-  border-width: 1.5px;
-}
-.locked-field input, .locked-field textarea {
-  background: var(--paper);
-  border-color: var(--line);
-  color: var(--ink-soft);
-}
 select {
   background-image: linear-gradient(45deg, transparent 50%, var(--ink-soft) 50%),
                     linear-gradient(135deg, var(--ink-soft) 50%, transparent 50%);
@@ -264,6 +251,19 @@ select.invalid {
   margin-top: 2px;
 }
 .tech-card a { color: var(--blue); text-decoration: none; }
+input.invalid, textarea.invalid {
+  border-color: var(--warn-border) !important;
+  background: var(--warn-bg) !important;
+}
+.check-item.invalid {
+  border-color: var(--warn-border);
+  border-width: 1.5px;
+}
+.locked-field input, .locked-field textarea {
+  background: var(--paper);
+  border-color: var(--line);
+  color: var(--ink-soft);
+}
 textarea { resize: vertical; min-height: 44px; }
 .hint { font-size: 0.74rem; color: var(--ink-soft); margin-top: 4px; }
 
@@ -411,6 +411,7 @@ footer.note {
 }
 .toast.show { opacity: 1; }
 </style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 </head>
 <body>
 
@@ -510,7 +511,14 @@ footer.note {
       <div class="status-flag" id="incompleteFlag"></div>
       <button class="btn btn-primary" id="emailBtn" type="button">Email to Homans</button>
       <button class="btn btn-secondary" id="downloadBtn" type="button">Download a copy</button>
-      <p class="hint" style="text-align:center;">Your answers are saved automatically on this device while you work.</p>
+      <p class="hint" style="text-align:center;">Sends the checklist as a real Excel file. If your device offers a share menu, pick Mail there (you may need to type in the recipient). Your answers are also saved automatically on this device while you work.</p>
+    </div>
+  </div>
+
+  <div class="card" style="margin-top:14px;">
+    <div class="card-body" style="padding:14px;">
+      <button class="btn btn-secondary" id="clearFormBtn" type="button" style="border-color:var(--warn-border); color:var(--warn-border);">Start a new checklist (clear this form)</button>
+      <p class="hint" style="text-align:center;">Only do this once the current job is finished and sent &mdash; this can&rsquo;t be undone. The Homans contact info on the Job &amp; Records tab stays put.</p>
     </div>
   </div>
 
@@ -532,66 +540,6 @@ const SYSTEM_FIELDS = [
   {key:'finalMicrons', label:'Final microns', rkey:'initialMicrons', rlabel:'Microns after 1-hr hold (rise check)', type:'number', rtype:'number'},
   {key:'refrigLbs', label:'Extra refrigerant (lbs)', type:'number', full:true},
 ];
-
-const AREAS = {
-  "ct-wma": {
-    label: "Connecticut / Western Massachusetts",
-    techs: [
-      {name: "Andre Correia", phone: "203-501-0548", email: "acorreia@homans.com"},
-      {name: "Justin Heinzman", phone: "203-233-4317", email: "jheinzman@homans.com"}
-    ]
-  },
-  "ema-ri": {
-    label: "Eastern Massachusetts / Rhode Island",
-    techs: [
-      {name: "Tim Williams", phone: "978-284-3015", email: "tim.williams@homans.com"},
-      {name: "Craig Brayen", phone: "978-447-4909", email: "craig.brayen@homans.com"},
-      {name: "Corey O'Connor", phone: "203-968-4991", email: "Corey.oconnor@homans.com"}
-    ]
-  },
-  "nh-me-vt-ny": {
-    label: "New Hampshire / Maine / Vermont / Upstate NY",
-    techs: [
-      {name: "Jamie Schule", phone: "603-540-4423", email: "jamie.schule@homans.com"},
-      {name: "Craig Hubbard", phone: "207-387-3400", email: "craig.hubbard@homans.com"}
-    ]
-  },
-  "nyc-nj": {
-    label: "New York City / New Jersey",
-    techs: [
-      {name: "Peter Pavlou", phone: "203-257-1673", email: "peter.pavlou@homans.com"},
-      {name: "Mahmoud Hikal", phone: "973-714-7272", email: "Mahmoud.hikal@homans.com"}
-    ]
-  }
-};
-
-function selectedArea() {
-  const key = (document.getElementById('jobArea') || {}).value || '';
-  return AREAS[key] || null;
-}
-
-function renderTechList() {
-  const wrap = document.getElementById('techList');
-  const hint = document.getElementById('techHint');
-  const sel = document.getElementById('jobArea');
-  const area = selectedArea();
-  if (!wrap) return;
-  if (!area) {
-    wrap.classList.remove('show');
-    wrap.innerHTML = '';
-    if (hint) hint.textContent = 'Select the area so this checklist emails every Homans technician assigned to that region.';
-    return;
-  }
-  wrap.innerHTML = area.techs.map(t => `
-    <div class="tech-card">
-      <div class="tech-name">${t.name}</div>
-      <div class="tech-meta">${t.phone} &middot; <a href="mailto:${t.email}">${t.email}</a></div>
-    </div>`).join('');
-  wrap.classList.add('show');
-  if (hint) hint.textContent = 'Email will go to all ' + area.techs.length + ' technicians listed for ' + area.label + '.';
-  if (sel) sel.classList.remove('invalid');
-}
-
 
 function placeholderFor(type) {
   if (type === 'date') return 'YYYY-MM-DD';
@@ -719,6 +667,66 @@ extraWrap.addEventListener('click', (e) => {
   saveDraft();
 });
 
+// ---------------- Job-site areas & their Homans techs ----------------
+const AREAS = {
+  "ct-wma": {
+    label: "Connecticut / Western Massachusetts",
+    techs: [
+      {name: "Andre Correia", phone: "203-501-0548", email: "acorreia@homans.com"},
+      {name: "Justin Heinzman", phone: "203-233-4317", email: "jheinzman@homans.com"}
+    ]
+  },
+  "ema-ri": {
+    label: "Eastern Massachusetts / Rhode Island",
+    techs: [
+      {name: "Tim Williams", phone: "978-284-3015", email: "tim.williams@homans.com"},
+      {name: "Craig Brayen", phone: "978-447-4909", email: "craig.brayen@homans.com"},
+      {name: "Corey O'Connor", phone: "203-968-4991", email: "Corey.oconnor@homans.com"}
+    ]
+  },
+  "nh-me-vt-ny": {
+    label: "New Hampshire / Maine / Vermont / Upstate NY",
+    techs: [
+      {name: "Jamie Schule", phone: "603-540-4423", email: "jamie.schule@homans.com"},
+      {name: "Craig Hubbard", phone: "207-387-3400", email: "craig.hubbard@homans.com"}
+    ]
+  },
+  "nyc-nj": {
+    label: "New York City / New Jersey",
+    techs: [
+      {name: "Peter Pavlou", phone: "203-257-1673", email: "peter.pavlou@homans.com"},
+      {name: "Mahmoud Hikal", phone: "973-714-7272", email: "Mahmoud.hikal@homans.com"}
+    ]
+  }
+};
+
+function selectedArea() {
+  const key = (document.getElementById('jobArea') || {}).value || '';
+  return AREAS[key] || null;
+}
+
+function renderTechList() {
+  const wrap = document.getElementById('techList');
+  const hint = document.getElementById('techHint');
+  const sel = document.getElementById('jobArea');
+  const area = selectedArea();
+  if (!wrap) return;
+  if (!area) {
+    wrap.classList.remove('show');
+    wrap.innerHTML = '';
+    if (hint) hint.textContent = 'Select the area so this checklist emails every Homans technician assigned to that region.';
+    return;
+  }
+  wrap.innerHTML = area.techs.map(t => `
+    <div class="tech-card">
+      <div class="tech-name">${t.name}</div>
+      <div class="tech-meta">${t.phone} &middot; <a href="mailto:${t.email}">${t.email}</a></div>
+    </div>`).join('');
+  wrap.classList.add('show');
+  if (hint) hint.textContent = 'Email will go to all ' + area.techs.length + ' technicians listed for ' + area.label + '.';
+  if (sel) sel.classList.remove('invalid');
+}
+
 // ---------------- Draft persistence (localStorage) ----------------
 const DRAFT_KEY = 'homans_prestartup_draft_v2_company';
 
@@ -803,6 +811,56 @@ function restoreDraft() {
   updateProgress();
 }
 
+function resetForm() {
+  // Job & Records (leave tech contact fields untouched \u2014 they belong to whoever this link/file was made for)
+  ['jobName','jobsiteAddress','companyName','yourName','yourPhone','yourEmail','signature','signDate'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) { el.value = ''; el.classList.remove('invalid'); }
+  });
+
+  const jobAreaEl = document.getElementById('jobArea');
+  if (jobAreaEl) { jobAreaEl.value = ''; jobAreaEl.classList.remove('invalid'); }
+  renderTechList();
+
+  // System 1 fields
+  SYSTEM_FIELDS.forEach(f => {
+    const keys = f.full ? [f.key] : [f.key, f.rkey];
+    keys.forEach(k => {
+      const el = document.getElementById('sys1_' + k);
+      if (el) el.value = '';
+    });
+  });
+
+  // Remove every Additional Systems block
+  extraSystems = [];
+  extraWrap.innerHTML = '';
+
+  // Reset the checklist
+  CHECKLIST_ITEMS.forEach(([n]) => {
+    checklistState[n] = {status: '', notes: ''};
+    const item = checklistWrap.children[n - 1];
+    if (!item) return;
+    item.classList.remove('invalid');
+    item.querySelectorAll('.seg button').forEach(b => b.classList.remove('on'));
+    item.querySelector('textarea').value = '';
+  });
+  updateProgress();
+
+  document.getElementById('incompleteFlag').classList.remove('show');
+
+  try { localStorage.removeItem(DRAFT_KEY); } catch (e) { /* ignore */ }
+
+  document.querySelector('nav.tabs button[data-tab="job"]').click();
+  window.scrollTo({top: 0, behavior: 'smooth'});
+  showToast('Ready for a new checklist');
+}
+
+document.getElementById('clearFormBtn').addEventListener('click', () => {
+  if (confirm('Start a new checklist? This clears every job field, system reading, and checklist answer on this device. This cannot be undone.')) {
+    resetForm();
+  }
+});
+
 // autosave on any input in job/system/tech fields
 document.addEventListener('input', (e) => {
   if (e.target.matches('input, textarea')) {
@@ -859,6 +917,96 @@ function buildSummary() {
   }
 
   return lines.join('\n');
+}
+
+// ---------------- Build the actual .xlsx workbook ----------------
+// This is the real payload for sending/attaching \u2014 matches the original
+// Homans spreadsheet's shape (Job & Records / Checklist / Additional Systems)
+// so it can be dropped straight into the report builder.
+function buildWorkbookBlob() {
+  const d = collectAll();
+  const wb = XLSX.utils.book_new();
+
+  const jr = [];
+  jr.push(['Pre-Startup Checklist \u2014 Job & Records']);
+  jr.push([]);
+  jr.push(['Job name', d.job.jobName || '']);
+  jr.push(['Jobsite address', d.job.jobsiteAddress || '']);
+  jr.push(['Company name', d.job.companyName || '']);
+  jr.push(['Your name', d.job.yourName || '']);
+  jr.push(['Phone', d.job.yourPhone || '']);
+  jr.push(['Email', d.job.yourEmail || '']);
+  jr.push(['Signature', d.job.signature || '']);
+  jr.push(['Date', d.job.signDate || '']);
+  jr.push([]);
+
+  function sysRows(title, vals, showName) {
+    jr.push([title]);
+    if (showName) jr.push(['System name', vals.systemName || '']);
+    jr.push(['PT start date', vals.ptStartDate || '', 'Start time', vals.startTime || '']);
+    jr.push(['Start pressure (psi)', vals.startPressure || '', 'Start OA temp (\u00b0F)', vals.startOATemp || '']);
+    jr.push(['PT stop date', vals.ptStopDate || '', 'Stop time', vals.stopTime || '']);
+    jr.push(['Stop pressure (psi)', vals.stopPressure || '', 'Stop OA temp (\u00b0F)', vals.stopOATemp || '']);
+    jr.push(['Final evacuation date', vals.finalEvacDate || '', 'Final time', vals.finalTime || '']);
+    jr.push(['Final microns', vals.finalMicrons || '', 'Microns after 1-hr hold (rise check)', vals.initialMicrons || '']);
+    jr.push(['Extra refrigerant (lbs)', vals.refrigLbs || '']);
+    jr.push([]);
+  }
+  sysRows('System 1 \u2014 Pressure / Evacuation / Extra Charge', d.sys1, false);
+
+  // Tech contact vs job-site-area, depending on which variant this page is
+  if (document.getElementById('jobArea')) {
+    const area = (typeof AREAS !== 'undefined') ? AREAS[d.area] : null;
+    jr.push(['Job-site area', area ? area.label : (d.area || '(not selected)')]);
+    if (area) area.techs.forEach(t => jr.push(['Homans tech', t.name, t.phone, t.email]));
+  } else {
+    jr.push(['Email completed checklist to']);
+    jr.push(['Name', d.tech.techName || '']);
+    jr.push(['Phone', d.tech.techPhone || '']);
+    jr.push(['Email', d.tech.techEmail || '']);
+  }
+  const wsJR = XLSX.utils.aoa_to_sheet(jr);
+  wsJR['!cols'] = [{wch: 26}, {wch: 30}, {wch: 22}, {wch: 26}];
+  XLSX.utils.book_append_sheet(wb, wsJR, 'Job & Records');
+
+  const cl = [['#', 'Section', 'What to finish', 'Status', 'Notes']];
+  CHECKLIST_ITEMS.forEach(([n, section, text]) => {
+    const s = d.checklist[n] || {};
+    cl.push([n, section, text, s.status || '', s.notes || '']);
+  });
+  const wsCL = XLSX.utils.aoa_to_sheet(cl);
+  wsCL['!cols'] = [{wch: 4}, {wch: 12}, {wch: 70}, {wch: 10}, {wch: 30}];
+  XLSX.utils.book_append_sheet(wb, wsCL, 'Checklist');
+
+  const as_ = [];
+  if (d.extras.length === 0) {
+    as_.push(['No additional systems added for this job']);
+  } else {
+    d.extras.forEach(ex => sysRowsInto(as_, ex));
+  }
+  function sysRowsInto(arr, vals) {
+    arr.push([vals.label]);
+    arr.push(['System name', vals.systemName || '']);
+    arr.push(['PT start date', vals.ptStartDate || '', 'Start time', vals.startTime || '']);
+    arr.push(['Start pressure (psi)', vals.startPressure || '', 'Start OA temp (\u00b0F)', vals.startOATemp || '']);
+    arr.push(['PT stop date', vals.ptStopDate || '', 'Stop time', vals.stopTime || '']);
+    arr.push(['Stop pressure (psi)', vals.stopPressure || '', 'Stop OA temp (\u00b0F)', vals.stopOATemp || '']);
+    arr.push(['Final evacuation date', vals.finalEvacDate || '', 'Final time', vals.finalTime || '']);
+    arr.push(['Final microns', vals.finalMicrons || '', 'Microns after 1-hr hold (rise check)', vals.initialMicrons || '']);
+    arr.push(['Extra refrigerant (lbs)', vals.refrigLbs || '']);
+    arr.push([]);
+  }
+  const wsAS = XLSX.utils.aoa_to_sheet(as_);
+  wsAS['!cols'] = [{wch: 26}, {wch: 30}, {wch: 22}, {wch: 26}];
+  XLSX.utils.book_append_sheet(wb, wsAS, 'Additional Systems');
+
+  const wbout = XLSX.write(wb, {bookType: 'xlsx', type: 'array'});
+  return new Blob([wbout], {type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+}
+
+function xlsxFilename() {
+  const jobName = (document.getElementById('jobName').value || 'checklist').trim().replace(/[^a-z0-9]+/gi, '_');
+  return `PreStartup_${jobName || 'checklist'}.xlsx`;
 }
 
 function showToast(msg) {
@@ -926,39 +1074,57 @@ function reportIncomplete(missing, unanswered) {
   showToast('Complete the checklist before sending');
 }
 
-document.getElementById('emailBtn').addEventListener('click', () => {
+document.getElementById('emailBtn').addEventListener('click', async () => {
   const {missing, unanswered} = validateComplete();
   if (missing.length || unanswered.length) {
     reportIncomplete(missing, unanswered);
     return;
   }
   document.getElementById('incompleteFlag').classList.remove('show');
-  const summary = buildSummary();
-  const area = selectedArea();
-  const to = area ? area.techs.map(t => t.email).join(',') : '';
+
   const jobName = (document.getElementById('jobName').value || 'Job').trim();
+  const areaForEmail = selectedArea();
+  const to = areaForEmail ? areaForEmail.techs.map(t => t.email).join(',') : '';
+  const filename = xlsxFilename();
+
+  // mailto: links can NEVER carry a real attachment \u2014 that's a hard limit
+  // of every browser and mail provider, not something we can work around.
+  // So: try the device's native Share Sheet first, which CAN attach a real
+  // file (though it can't pre-fill a recipient). Only fall back to mailto
+  // \u2014 recipient prefilled, but no attachment \u2014 if sharing isn't available.
+  try {
+    const blob = buildWorkbookBlob();
+    const file = new File([blob], filename, {type: blob.type});
+    if (navigator.canShare && navigator.canShare({files: [file]})) {
+      await navigator.share({
+        files: [file],
+        title: 'Pre-Startup Checklist \u2014 ' + jobName,
+        text: 'Completed pre-startup checklist for ' + jobName + '.'
+      });
+      showToast('Choose Mail (or your email app) to send it');
+      return;
+    }
+  } catch (e) {
+    if (e && e.name === 'AbortError') return; // user backed out of the share sheet
+    /* fall through to mailto */
+  }
+
+  // Fallback: no Share Sheet available on this browser. Download the file
+  // for them and open a short, clean email \u2014 never a truncated dump \u2014
+  // telling them to attach what was just downloaded.
+  try {
+    const blob = buildWorkbookBlob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = filename;
+    document.body.appendChild(a); a.click(); a.remove();
+    URL.revokeObjectURL(url);
+  } catch (e) { /* ignore \u2014 still send the email below */ }
+
   const subject = 'Pre-Startup Checklist \u2014 ' + jobName;
-
-  // Mail apps (iOS Mail especially) silently refuse mailto: links once the
-  // full URL runs long, and slicing an already-percent-encoded string can
-  // cut a %XX sequence in half and corrupt the link. So: truncate the RAW
-  // text first, at a safe budget, then encode whatever survives.
-  const RAW_BUDGET = 1400;
-  let bodyText = summary;
-  let truncated = false;
-  if (bodyText.length > RAW_BUDGET) {
-    bodyText = bodyText.slice(0, RAW_BUDGET);
-    truncated = true;
-  }
-  if (truncated) {
-    bodyText += '\n\n[Message truncated for email \u2014 tap "Download a copy" for the complete checklist and attach it here.]';
-  }
-
-  const mailto = `mailto:${encodeURIComponent(to)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(bodyText)}`;
-  if (truncated) {
-    showToast('Long checklist \u2014 download a copy to attach the full version');
-  }
-  window.location.href = mailto;
+  const body = 'The completed pre-startup checklist for ' + jobName + ' has been downloaded as ' + filename + '. Please attach that file to this email before sending.';
+  showToast('Downloaded ' + filename + ' \u2014 attach it to the email');
+  window.location.href = `mailto:${encodeURIComponent(to)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
 });
 
 document.getElementById('downloadBtn').addEventListener('click', async () => {
@@ -968,16 +1134,15 @@ document.getElementById('downloadBtn').addEventListener('click', async () => {
     return;
   }
   document.getElementById('incompleteFlag').classList.remove('show');
-  const summary = buildSummary();
-  const jobName = (document.getElementById('jobName').value || 'checklist').trim().replace(/[^a-z0-9]+/gi, '_');
-  const filename = `PreStartup_${jobName || 'checklist'}.txt`;
+  const filename = xlsxFilename();
+  const blob = buildWorkbookBlob();
 
   // Tier 1: Claude artifact runtime (only present when hosted on claude.ai)
   try {
     if (typeof claude !== 'undefined') {
       const downloads = await claude.use('downloads');
       if (downloads) {
-        await downloads.save({filename, data: summary});
+        await downloads.save({filename, data: blob});
         showToast('Downloaded');
         return;
       }
@@ -989,7 +1154,7 @@ document.getElementById('downloadBtn').addEventListener('click', async () => {
   // download attribute. Pops the native Share Sheet (Save to Files,
   // AirDrop, Mail, Messages, etc).
   try {
-    const file = new File([summary], filename, {type: 'text/plain'});
+    const file = new File([blob], filename, {type: blob.type});
     if (navigator.canShare && navigator.canShare({files: [file]})) {
       await navigator.share({files: [file], title: filename});
       showToast('Shared');
@@ -1002,7 +1167,6 @@ document.getElementById('downloadBtn').addEventListener('click', async () => {
 
   // Tier 3: classic blob + <a download> \u2014 works on desktop browsers
   try {
-    const blob = new Blob([summary], {type: 'text/plain'});
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url; a.download = filename;
@@ -1012,18 +1176,11 @@ document.getElementById('downloadBtn').addEventListener('click', async () => {
     return;
   } catch (e) { /* fall through */ }
 
-  // Tier 4: last resort \u2014 open it in a new tab so it can be read/copied manually
-  try {
-    const w = window.open('', '_blank');
-    w.document.write('<pre style="white-space:pre-wrap;font-family:monospace;padding:16px;">' +
-      summary.replace(/&/g,'&amp;').replace(/</g,'&lt;') + '</pre>');
-    showToast('Opened in a new tab \u2014 copy or print from there');
-  } catch (e) {
-    showToast('Download not available \u2014 use Email instead');
-  }
+  // Tier 4: last resort \u2014 nothing else worked
+  showToast('Download not available on this browser \u2014 try Email instead');
 });
 
-// ---------------- URL pre-fill for area (?area=ct-wma) ----------------
+// ---------------- URL pre-fill for tech contact ----------------
 (function prefillArea() {
   const params = new URLSearchParams(window.location.search);
   const area = params.get('area');
@@ -1039,8 +1196,8 @@ document.getElementById('jobArea').addEventListener('change', () => {
 });
 
 restoreDraft();
-renderTechList();
 updateProgress();
+renderTechList();
 </script>
 </body>
 </html>
