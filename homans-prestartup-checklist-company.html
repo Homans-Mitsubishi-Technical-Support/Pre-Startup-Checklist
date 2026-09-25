@@ -411,7 +411,8 @@ footer.note {
 }
 .toast.show { opacity: 1; }
 </style>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
 </head>
 <body>
 
@@ -923,33 +924,61 @@ function buildSummary() {
 // This is the real payload for sending/attaching \u2014 matches the original
 // Homans spreadsheet's shape (Job & Records / Checklist / Additional Systems)
 // so it can be dropped straight into the report builder.
+// ---------------- Style helpers (xlsx-js-style adds real style writing on
+// top of plain SheetJS, which the free/community build doesn't support) ----------------
+const XLSX_BLUE = '004FA4';
+const XLSX_BORDER = {style: 'thin', color: {rgb: 'D0D5DD'}};
+const XLSX_ALL_BORDERS = {top: XLSX_BORDER, bottom: XLSX_BORDER, left: XLSX_BORDER, right: XLSX_BORDER};
+
+function xCell(value, style) {
+  return {v: (value === null || value === undefined) ? '' : value, t: 's', s: style};
+}
+function xTitle(value) {
+  return xCell(value, {font: {bold: true, sz: 13, color: {rgb: XLSX_BLUE}}});
+}
+function xSectionHeader(value) {
+  return xCell(value, {font: {bold: true, color: {rgb: 'FFFFFF'}}, fill: {fgColor: {rgb: XLSX_BLUE}}, border: XLSX_ALL_BORDERS});
+}
+function xLabel(value) {
+  return xCell(value, {font: {bold: true}, alignment: {vertical: 'top', wrapText: true}, border: XLSX_ALL_BORDERS});
+}
+function xValue(value) {
+  return xCell(value, {alignment: {vertical: 'top', wrapText: true}, border: XLSX_ALL_BORDERS});
+}
+function xPlain(value) {
+  return xCell(value, {alignment: {vertical: 'top'}, border: XLSX_ALL_BORDERS});
+}
+function xNumber(value) {
+  return {v: value, t: 'n', s: {alignment: {vertical: 'top'}, border: XLSX_ALL_BORDERS}};
+}
+
 function buildWorkbookBlob() {
   const d = collectAll();
   const wb = XLSX.utils.book_new();
 
   const jr = [];
-  jr.push(['Pre-Startup Checklist \u2014 Job & Records']);
+  jr.push([xTitle('Pre-Startup Checklist \u2014 Job & Records')]);
   jr.push([]);
-  jr.push(['Job name', d.job.jobName || '']);
-  jr.push(['Jobsite address', d.job.jobsiteAddress || '']);
-  jr.push(['Company name', d.job.companyName || '']);
-  jr.push(['Your name', d.job.yourName || '']);
-  jr.push(['Phone', d.job.yourPhone || '']);
-  jr.push(['Email', d.job.yourEmail || '']);
-  jr.push(['Signature', d.job.signature || '']);
-  jr.push(['Date', d.job.signDate || '']);
+  jr.push([xLabel('Job name'), xValue(d.job.jobName || '')]);
+  jr.push([xLabel('Jobsite address'), xValue(d.job.jobsiteAddress || '')]);
+  jr.push([xLabel('Company name'), xValue(d.job.companyName || '')]);
+  jr.push([xLabel('Your name'), xValue(d.job.yourName || '')]);
+  jr.push([xLabel('Phone'), xValue(d.job.yourPhone || '')]);
+  jr.push([xLabel('Email'), xValue(d.job.yourEmail || '')]);
+  jr.push([xLabel('Signature'), xValue(d.job.signature || '')]);
+  jr.push([xLabel('Date'), xValue(d.job.signDate || '')]);
   jr.push([]);
 
   function sysRows(title, vals, showName) {
-    jr.push([title]);
-    if (showName) jr.push(['System name', vals.systemName || '']);
-    jr.push(['PT start date', vals.ptStartDate || '', 'Start time', vals.startTime || '']);
-    jr.push(['Start pressure (psi)', vals.startPressure || '', 'Start OA temp (\u00b0F)', vals.startOATemp || '']);
-    jr.push(['PT stop date', vals.ptStopDate || '', 'Stop time', vals.stopTime || '']);
-    jr.push(['Stop pressure (psi)', vals.stopPressure || '', 'Stop OA temp (\u00b0F)', vals.stopOATemp || '']);
-    jr.push(['Final evacuation date', vals.finalEvacDate || '', 'Final time', vals.finalTime || '']);
-    jr.push(['Final microns', vals.finalMicrons || '', 'Microns after 1-hr hold (rise check)', vals.initialMicrons || '']);
-    jr.push(['Extra refrigerant (lbs)', vals.refrigLbs || '']);
+    jr.push([xSectionHeader(title), xSectionHeader(''), xSectionHeader(''), xSectionHeader('')]);
+    if (showName) jr.push([xLabel('System name'), xValue(vals.systemName || '')]);
+    jr.push([xLabel('PT start date'), xValue(vals.ptStartDate || ''), xLabel('Start time'), xValue(vals.startTime || '')]);
+    jr.push([xLabel('Start pressure (psi)'), xValue(vals.startPressure || ''), xLabel('Start OA temp (\u00b0F)'), xValue(vals.startOATemp || '')]);
+    jr.push([xLabel('PT stop date'), xValue(vals.ptStopDate || ''), xLabel('Stop time'), xValue(vals.stopTime || '')]);
+    jr.push([xLabel('Stop pressure (psi)'), xValue(vals.stopPressure || ''), xLabel('Stop OA temp (\u00b0F)'), xValue(vals.stopOATemp || '')]);
+    jr.push([xLabel('Final evacuation date'), xValue(vals.finalEvacDate || ''), xLabel('Final time'), xValue(vals.finalTime || '')]);
+    jr.push([xLabel('Final microns'), xValue(vals.finalMicrons || ''), xLabel('Microns after 1-hr hold (rise check)'), xValue(vals.initialMicrons || '')]);
+    jr.push([xLabel('Extra refrigerant (lbs)'), xValue(vals.refrigLbs || '')]);
     jr.push([]);
   }
   sysRows('System 1 \u2014 Pressure / Evacuation / Extra Charge', d.sys1, false);
@@ -957,47 +986,48 @@ function buildWorkbookBlob() {
   // Tech contact vs job-site-area, depending on which variant this page is
   if (document.getElementById('jobArea')) {
     const area = (typeof AREAS !== 'undefined') ? AREAS[d.area] : null;
-    jr.push(['Job-site area', area ? area.label : (d.area || '(not selected)')]);
-    if (area) area.techs.forEach(t => jr.push(['Homans tech', t.name, t.phone, t.email]));
+    jr.push([xSectionHeader('Job-site area'), xSectionHeader(''), xSectionHeader(''), xSectionHeader('')]);
+    jr.push([xLabel('Area'), xValue(area ? area.label : (d.area || '(not selected)'))]);
+    if (area) area.techs.forEach(t => jr.push([xLabel('Homans tech'), xValue(t.name), xLabel('Phone / Email'), xValue(t.phone + '  \u00b7  ' + t.email)]));
   } else {
-    jr.push(['Email completed checklist to']);
-    jr.push(['Name', d.tech.techName || '']);
-    jr.push(['Phone', d.tech.techPhone || '']);
-    jr.push(['Email', d.tech.techEmail || '']);
+    jr.push([xSectionHeader('Email completed checklist to'), xSectionHeader(''), xSectionHeader(''), xSectionHeader('')]);
+    jr.push([xLabel('Name'), xValue(d.tech.techName || '')]);
+    jr.push([xLabel('Phone'), xValue(d.tech.techPhone || '')]);
+    jr.push([xLabel('Email'), xValue(d.tech.techEmail || '')]);
   }
   const wsJR = XLSX.utils.aoa_to_sheet(jr);
-  wsJR['!cols'] = [{wch: 26}, {wch: 30}, {wch: 22}, {wch: 26}];
+  wsJR['!cols'] = [{wch: 24}, {wch: 34}, {wch: 28}, {wch: 34}];
   XLSX.utils.book_append_sheet(wb, wsJR, 'Job & Records');
 
-  const cl = [['#', 'Section', 'What to finish', 'Status', 'Notes']];
+  const cl = [[xSectionHeader('#'), xSectionHeader('Section'), xSectionHeader('What to finish'), xSectionHeader('Status'), xSectionHeader('Notes')]];
   CHECKLIST_ITEMS.forEach(([n, section, text]) => {
     const s = d.checklist[n] || {};
-    cl.push([n, section, text, s.status || '', s.notes || '']);
+    cl.push([xNumber(n), xPlain(section), xValue(text), xPlain(s.status || ''), xValue(s.notes || '')]);
   });
   const wsCL = XLSX.utils.aoa_to_sheet(cl);
-  wsCL['!cols'] = [{wch: 4}, {wch: 12}, {wch: 70}, {wch: 10}, {wch: 30}];
+  wsCL['!cols'] = [{wch: 4}, {wch: 12}, {wch: 62}, {wch: 10}, {wch: 30}];
   XLSX.utils.book_append_sheet(wb, wsCL, 'Checklist');
 
   const as_ = [];
   if (d.extras.length === 0) {
-    as_.push(['No additional systems added for this job']);
+    as_.push([xPlain('No additional systems added for this job')]);
   } else {
     d.extras.forEach(ex => sysRowsInto(as_, ex));
   }
   function sysRowsInto(arr, vals) {
-    arr.push([vals.label]);
-    arr.push(['System name', vals.systemName || '']);
-    arr.push(['PT start date', vals.ptStartDate || '', 'Start time', vals.startTime || '']);
-    arr.push(['Start pressure (psi)', vals.startPressure || '', 'Start OA temp (\u00b0F)', vals.startOATemp || '']);
-    arr.push(['PT stop date', vals.ptStopDate || '', 'Stop time', vals.stopTime || '']);
-    arr.push(['Stop pressure (psi)', vals.stopPressure || '', 'Stop OA temp (\u00b0F)', vals.stopOATemp || '']);
-    arr.push(['Final evacuation date', vals.finalEvacDate || '', 'Final time', vals.finalTime || '']);
-    arr.push(['Final microns', vals.finalMicrons || '', 'Microns after 1-hr hold (rise check)', vals.initialMicrons || '']);
-    arr.push(['Extra refrigerant (lbs)', vals.refrigLbs || '']);
+    arr.push([xSectionHeader(vals.label), xSectionHeader(''), xSectionHeader(''), xSectionHeader('')]);
+    arr.push([xLabel('System name'), xValue(vals.systemName || '')]);
+    arr.push([xLabel('PT start date'), xValue(vals.ptStartDate || ''), xLabel('Start time'), xValue(vals.startTime || '')]);
+    arr.push([xLabel('Start pressure (psi)'), xValue(vals.startPressure || ''), xLabel('Start OA temp (\u00b0F)'), xValue(vals.startOATemp || '')]);
+    arr.push([xLabel('PT stop date'), xValue(vals.ptStopDate || ''), xLabel('Stop time'), xValue(vals.stopTime || '')]);
+    arr.push([xLabel('Stop pressure (psi)'), xValue(vals.stopPressure || ''), xLabel('Stop OA temp (\u00b0F)'), xValue(vals.stopOATemp || '')]);
+    arr.push([xLabel('Final evacuation date'), xValue(vals.finalEvacDate || ''), xLabel('Final time'), xValue(vals.finalTime || '')]);
+    arr.push([xLabel('Final microns'), xValue(vals.finalMicrons || ''), xLabel('Microns after 1-hr hold (rise check)'), xValue(vals.initialMicrons || '')]);
+    arr.push([xLabel('Extra refrigerant (lbs)'), xValue(vals.refrigLbs || '')]);
     arr.push([]);
   }
   const wsAS = XLSX.utils.aoa_to_sheet(as_);
-  wsAS['!cols'] = [{wch: 26}, {wch: 30}, {wch: 22}, {wch: 26}];
+  wsAS['!cols'] = [{wch: 24}, {wch: 34}, {wch: 28}, {wch: 34}];
   XLSX.utils.book_append_sheet(wb, wsAS, 'Additional Systems');
 
   const wbout = XLSX.write(wb, {bookType: 'xlsx', type: 'array'});
@@ -1007,6 +1037,31 @@ function buildWorkbookBlob() {
 function xlsxFilename() {
   const jobName = (document.getElementById('jobName').value || 'checklist').trim().replace(/[^a-z0-9]+/gi, '_');
   return `PreStartup_${jobName || 'checklist'}.xlsx`;
+}
+
+// Works for every variant: the master/Justin page has a single techEmail
+// field; the company (by-region) page has a jobArea select instead, whose
+// chosen area maps to a list of tech emails in AREAS.
+function getRecipientEmails() {
+  const areaEl = document.getElementById('jobArea');
+  if (areaEl) {
+    const area = (typeof AREAS !== 'undefined') ? AREAS[areaEl.value] : null;
+    return area ? area.techs.map(t => t.email).join(', ') : '';
+  }
+  const techEl = document.getElementById('techEmail');
+  return techEl ? (techEl.value || '') : '';
+}
+
+// mailto: needs each address percent-encoded individually, then rejoined
+// with a plain comma. encodeURIComponent() on the whole comma-joined string
+// escapes the commas themselves (into %2C) along with the @ signs, so a
+// mail app sees one long garbled blob instead of separate addresses.
+function formatMailtoRecipients(to) {
+  return to.split(',')
+    .map(e => e.trim())
+    .filter(Boolean)
+    .map(encodeURIComponent)
+    .join(',');
 }
 
 function showToast(msg) {
@@ -1074,6 +1129,48 @@ function reportIncomplete(missing, unanswered) {
   showToast('Complete the checklist before sending');
 }
 
+// ---------------- EmailJS (real, automatic send with attachment) ----------------
+// Fill these in once your EmailJS account/template are ready. Until then,
+// these placeholders make the app skip straight to the Share Sheet / mailto
+// fallback below, unchanged from how it works today.
+const EMAILJS_SERVICE_ID = 'REPLACE_WITH_SERVICE_ID';
+const EMAILJS_TEMPLATE_ID = 'REPLACE_WITH_TEMPLATE_ID';
+const EMAILJS_PUBLIC_KEY = 'REPLACE_WITH_PUBLIC_KEY';
+
+function emailjsConfigured() {
+  return !EMAILJS_SERVICE_ID.startsWith('REPLACE_') &&
+         !EMAILJS_TEMPLATE_ID.startsWith('REPLACE_') &&
+         !EMAILJS_PUBLIC_KEY.startsWith('REPLACE_');
+}
+
+function blobToBase64(blob) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => resolve(reader.result.split(',')[1] || '');
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
+}
+
+async function trySendViaEmailJS(to, cc, jobName, filename, blob) {
+  if (!emailjsConfigured() || typeof emailjs === 'undefined') return false;
+  try {
+    emailjs.init({publicKey: EMAILJS_PUBLIC_KEY});
+    const attachment_data = await blobToBase64(blob);
+    await emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, {
+      to_email: to,
+      cc_email: cc,
+      subject: 'Pre-Startup Checklist \u2014 ' + jobName,
+      message: 'Completed pre-startup checklist for ' + jobName + '. See attached file.',
+      attachment_name: filename,
+      attachment_data: attachment_data
+    });
+    return true;
+  } catch (e) {
+    return false; // fall through to the Share Sheet / mailto path below
+  }
+}
+
 document.getElementById('emailBtn').addEventListener('click', async () => {
   const {missing, unanswered} = validateComplete();
   if (missing.length || unanswered.length) {
@@ -1083,9 +1180,19 @@ document.getElementById('emailBtn').addEventListener('click', async () => {
   document.getElementById('incompleteFlag').classList.remove('show');
 
   const jobName = (document.getElementById('jobName').value || 'Job').trim();
-  const areaForEmail = selectedArea();
-  const to = areaForEmail ? areaForEmail.techs.map(t => t.email).join(',') : '';
+  const to = getRecipientEmails();
+  const cc = (document.getElementById('yourEmail') || {}).value || '';
   const filename = xlsxFilename();
+  const blob = buildWorkbookBlob();
+
+  // Primary path: send the real email directly, with the file genuinely
+  // attached and the recipient(s) already correct \u2014 no share sheet,
+  // no manual attach step. Only runs once EmailJS is actually configured.
+  const sent = await trySendViaEmailJS(to, cc, jobName, filename, blob);
+  if (sent) {
+    showToast('Emailed to Homans');
+    return;
+  }
 
   // mailto: links can NEVER carry a real attachment \u2014 that's a hard limit
   // of every browser and mail provider, not something we can work around.
@@ -1093,7 +1200,6 @@ document.getElementById('emailBtn').addEventListener('click', async () => {
   // file (though it can't pre-fill a recipient). Only fall back to mailto
   // \u2014 recipient prefilled, but no attachment \u2014 if sharing isn't available.
   try {
-    const blob = buildWorkbookBlob();
     const file = new File([blob], filename, {type: blob.type});
     if (navigator.canShare && navigator.canShare({files: [file]})) {
       await navigator.share({
@@ -1113,7 +1219,6 @@ document.getElementById('emailBtn').addEventListener('click', async () => {
   // for them and open a short, clean email \u2014 never a truncated dump \u2014
   // telling them to attach what was just downloaded.
   try {
-    const blob = buildWorkbookBlob();
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url; a.download = filename;
@@ -1124,7 +1229,7 @@ document.getElementById('emailBtn').addEventListener('click', async () => {
   const subject = 'Pre-Startup Checklist \u2014 ' + jobName;
   const body = 'The completed pre-startup checklist for ' + jobName + ' has been downloaded as ' + filename + '. Please attach that file to this email before sending.';
   showToast('Downloaded ' + filename + ' \u2014 attach it to the email');
-  window.location.href = `mailto:${encodeURIComponent(to)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+  window.location.href = `mailto:${formatMailtoRecipients(to)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
 });
 
 document.getElementById('downloadBtn').addEventListener('click', async () => {
